@@ -17,7 +17,7 @@ jobs:
       run: |
         git config user.name github-actions
         git config user.email github-actions@github.com
-        
+    
     - name: Debug - Check Git Status
       run: |
         echo "Current branch:"
@@ -40,17 +40,25 @@ jobs:
       id: check_diff
       run: |
         git fetch origin dev
-        git diff --quiet origin/dev...origin/master || echo "has_changes=true" >> $GITHUB_OUTPUT
-        echo "Has changes: ${{ steps.check_diff.outputs.has_changes == 'true' && 'Yes' || 'No' }}"
+        git diff --name-only origin/dev...origin/master > changes.txt
+        if [ -s changes.txt ]; then
+          echo "has_changes=true" >> $GITHUB_OUTPUT
+          echo "Changes detected:"
+          cat changes.txt
+        else
+          echo "has_changes=false" >> $GITHUB_OUTPUT
+          echo "No changes detected"
+        fi
     
     - name: Debug - Pre-PR Creation
       run: |
         echo "Current state before PR creation:"
         git status
         git log --oneline -n 5
+        echo "Diff between dev and master:"
+        git diff origin/dev...origin/master
     
     - name: Create Pull Request
-      id: create_pr
       uses: peter-evans/create-pull-request@v5
       with:
         token: ${{ secrets.PAT }}
@@ -79,43 +87,10 @@ jobs:
         git status
         git log --oneline -n 5
     
-    - name: PR Creation Status
-      if: steps.create_pr.outputs.pull-request-number
-      run: |
-        echo "Pull Request creado con éxito."
-        echo "Número de PR: ${{ steps.create_pr.outputs.pull-request-number }}"
-        echo "URL del PR: ${{ steps.create_pr.outputs.pull-request-url }}"
-      
-    - name: PR Creation Failed
-      if: failure() && steps.create_pr.outcome == 'failure'
-      run: |
-        echo "Error al crear el Pull Request."
-        echo "Detalles del error:"
-        echo "${{ steps.create_pr.outputs.error-message }}"
-        
-        echo "Verificando si ya existe un PR..."
-        existingPR=$(gh pr list --base dev --head backport-to-dev --json number,url --jq '.[0]')
-        
-        if [ -n "$existingPR" ]; then
-          echo "Se encontró un PR existente:"
-          echo "$existingPR" | jq .
-        else
-          echo "No se encontró ningún PR existente."
-        fi
-      env:
-        GITHUB_TOKEN: ${{ secrets.PAT }}
-    
     - name: List Open PRs
       run: |
         echo "Lista de PRs abiertos de backport-to-dev a dev:"
         gh pr list --base dev --head backport-to-dev --json number,title,url --jq '.[] | "PR #\(.number): \(.title) - \(.url)"'
-      env:
-        GITHUB_TOKEN: ${{ secrets.PAT }}
-    
-    - name: Request review
-      if: steps.create_pr.outputs.pull-request-number
-      run: |
-        gh pr review ${{ steps.create_pr.outputs.pull-request-number }} --request-reviews ${{ steps.get_author.outputs.username }}
       env:
         GITHUB_TOKEN: ${{ secrets.PAT }}
     
@@ -124,7 +99,7 @@ jobs:
         if [ "${{ steps.check_diff.outputs.has_changes }}" == "true" ]; then
           echo "Se ha intentado crear o actualizar un PR para backport de master a dev."
         else
-          echo "Se ha verificado el estado, pero no hay cambios adicionales para backport de master a dev."
+          echo "Se ha verificado el estado, pero no se detectaron cambios adicionales para backport de master a dev."
         fi
         echo "Estado actual de las ramas:"
         git show-branch master dev || echo "No se pudo mostrar el estado de las ramas"
