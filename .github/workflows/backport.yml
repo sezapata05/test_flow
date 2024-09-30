@@ -1,61 +1,52 @@
 name: Backport to Dev
-
 on:
   push:
     branches:
       - master
-
 jobs:
   backport:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         fetch-depth: 0
         token: ${{ secrets.PAT }}
-
-    - name: Set up Git and fetch all branches
+    
+    - name: Set up Git
       run: |
         git config user.name github-actions
         git config user.email github-actions@github.com
-        git fetch --all
-        echo "Branches available:"
-        git branch -r
-
+    
     - name: Get last commit author
       id: get_author
       run: |
         AUTHOR=$(git log -1 --pretty=format:'%an <%ae>')
         AUTHOR_USERNAME=$(echo $AUTHOR | sed -n 's/.*<\(.*\)@.*/\1/p')
-        echo "::set-output name=author::$AUTHOR"
-        echo "::set-output name=username::$AUTHOR_USERNAME"
-
-    - name: Check for changes
-      id: check_changes
+        echo "author=$AUTHOR" >> $GITHUB_OUTPUT
+        echo "username=$AUTHOR_USERNAME" >> $GITHUB_OUTPUT
+    
+    - name: Update dev branch
       run: |
+        git fetch origin dev
         if git rev-parse --verify origin/dev > /dev/null 2>&1; then
-          echo "Dev branch exists"
-          echo "Commits ahead:"
-          git log --oneline origin/dev..origin/master || echo "No commits ahead"
-          git diff --quiet origin/dev...origin/master || echo "::set-output name=has_changes::true"
+          echo "Dev branch exists, updating..."
+          git checkout dev
+          git merge origin/master --no-edit
         else
           echo "Dev branch does not exist. Creating it from master."
           git checkout -b dev origin/master
-          git push origin dev
-          echo "::set-output name=has_changes::true"
         fi
-        echo "Has changes: ${{ steps.check_changes.outputs.has_changes }}"
-
-    - name: Create backport branch
-      if: steps.check_changes.outputs.has_changes == 'true'
+        git push origin dev
+    
+    - name: Check for differences
+      id: check_diff
       run: |
-        git checkout -b backport-to-dev origin/master
-        git push origin backport-to-dev
-
-    - name: Create Pull Request
-      if: steps.check_changes.outputs.has_changes == 'true'
-      uses: peter-evans/create-pull-request@v3
+        git diff --quiet origin/dev...origin/master || echo "has_changes=true" >> $GITHUB_OUTPUT
+    
+    - name: Create Pull Request if needed
+      if: steps.check_diff.outputs.has_changes == 'true'
+      uses: peter-evans/create-pull-request@v5
       with:
         token: ${{ secrets.PAT }}
         branch: backport-to-dev
@@ -71,14 +62,17 @@ jobs:
           backport
           needs review
         assignees: ${{ steps.get_author.outputs.username }}
-
-    - name: Notify if no changes
-      if: steps.check_changes.outputs.has_changes != 'true'
+    
+    - name: Notify status
       run: |
-        echo "No hay cambios para backport de master a dev."
+        if [ "${{ steps.check_diff.outputs.has_changes }}" == "true" ]; then
+          echo "Se ha creado un PR para backport de master a dev."
+        else
+          echo "No hay cambios adicionales para backport de master a dev."
+        fi
         echo "Estado actual de las ramas:"
         git show-branch master dev
-
+    
     - name: Check for open PRs
       run: |
         pr_count=$(gh pr list --base dev --head backport-to-dev --json number --jq length)
