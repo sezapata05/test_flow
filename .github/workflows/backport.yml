@@ -1,4 +1,4 @@
-name: Fast-forward Dev to Master
+name: Fast-forward Dev to Master.
 
 on:
   pull_request:
