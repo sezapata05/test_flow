@@ -1,91 +1,26 @@
-name: Backport to Dev
+name: Automatic backport action
+
 on:
-  push:
-    branches:
-      - master
+  pull_request_target:
+    types: ["labeled", "closed"]
+
 jobs:
   backport:
+    name: Backport PR
+    if: github.event.pull_request.merged == true && !(contains(github.event.pull_request.labels.*.name, 'backport'))
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
-        token: ${{ secrets.PAT }}
-    
-    - name: Set up Git
-      run: |
-        git config user.name github-actions
-        git config user.email github-actions@github.com
-    
-    - name: Check for differences
-      id: check_diff
-      run: |
-        git fetch origin dev
-        if git diff --quiet origin/dev...origin/master; then
-          echo "has_changes=false" >> $GITHUB_OUTPUT
-          echo "No changes detected between dev and master"
-        else
-          echo "has_changes=true" >> $GITHUB_OUTPUT
-          echo "Changes detected between dev and master"
-        fi
+      - name: Backport Action
+        uses: sorenlouv/backport-github-action@v9.5.1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          auto_backport_label_prefix: backport-to-
 
-    - name: Create Pull Request if needed
-      if: steps.check_diff.outputs.has_changes == 'true'
-      uses: peter-evans/create-pull-request@v5
-      with:
-        token: ${{ secrets.PAT }}
-        branch: backport-to-dev
-        base: dev
-        title: 'Backport: Merge master into dev'
-        body: |
-          Este PR backporta los cambios de master a dev.
-          Por favor, revise los cambios y apruebe el PR si todo está correcto.
-        draft: false
-        labels: backport, needs review
-
-    - name: Wait for PR to be merged
-      if: steps.check_diff.outputs.has_changes == 'true'
-      run: |
-        PR_NUMBER=$(gh pr list --base dev --head backport-to-dev --json number --jq '.[0].number')
-        if [ -n "$PR_NUMBER" ]; then
-          echo "Waiting for PR #$PR_NUMBER to be merged..."
-          while true; do
-            PR_STATE=$(gh pr view $PR_NUMBER --json state --jq '.state')
-            if [ "$PR_STATE" = "MERGED" ]; then
-              echo "PR #$PR_NUMBER has been merged."
-              break
-            elif [ "$PR_STATE" = "CLOSED" ]; then
-              echo "PR #$PR_NUMBER was closed without merging."
-              exit 1
-            fi
-            echo "PR #$PR_NUMBER is still open. Waiting 30 seconds before checking again..."
-            sleep 30
-          done
-        else
-          echo "No open PR found."
-        fi
-      env:
-        GITHUB_TOKEN: ${{ secrets.PAT }}
-
-    - name: Update master
-      run: |
-        git fetch origin dev
-        git checkout master
-        git merge origin/dev --no-ff -m "Merge dev into master"
-        git push origin master
-      env:
-        GITHUB_TOKEN: ${{ secrets.PAT }}
-
-    - name: Verify branches are in sync
-      run: |
-        git fetch origin
-        MASTER_SHA=$(git rev-parse origin/master)
-        DEV_SHA=$(git rev-parse origin/dev)
-        if [ "$MASTER_SHA" = "$DEV_SHA" ]; then
-          echo "master and dev are now in sync"
-        else
-          echo "Warning: master and dev are not in sync"
-          echo "master: $MASTER_SHA"
-          echo "dev: $DEV_SHA"
-        fi
+      - name: Info log
+        if: ${{ success() }}
+        run: cat ~/.backport/backport.info.log
+        
+      - name: Debug log
+        if: ${{ failure() }}
+        run: cat ~/.backport/backport.debug.log        
+          
