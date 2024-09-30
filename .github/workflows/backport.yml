@@ -24,9 +24,6 @@ jobs:
       run: |
         git checkout -b backport-to-dev origin/dev
         git merge --no-ff origin/master -m "Backport: Merge master into dev"
-
-    - name: Push changes
-      run: |
         git push origin backport-to-dev
 
     - name: Create Pull Request
@@ -36,4 +33,10 @@ jobs:
         branch: backport-to-dev
         base: dev
         title: 'Backport: Merge master into dev'
-        body: 'This PR backports changes from master to dev.'
+        body: |
+          Este PR backporta los cambios de master a dev.
+          Por favor, revise los cambios y apruebe el PR si todo está correcto.
+        draft: false
+        labels: |
+          backport
+          needs review
