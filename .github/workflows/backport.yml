@@ -12,7 +12,8 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
       with:
-        fetch-depth: 0  # Necesario para acceder al historial completo
+        fetch-depth: 0
+        token: ${{ secrets.PAT }}
 
     - name: Set up Git
       run: |
@@ -31,7 +32,7 @@ jobs:
     - name: Create Pull Request
       uses: peter-evans/create-pull-request@v3
       with:
-        token: ${{ secrets.GITHUB_TOKEN }}
+        token: ${{ secrets.PAT }}
         branch: backport-to-dev
         base: dev
         title: 'Backport: Merge master into dev'
