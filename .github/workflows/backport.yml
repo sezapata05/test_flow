@@ -23,6 +23,14 @@ jobs:
         echo "Branches available:"
         git branch -r
 
+    - name: Get last commit author
+      id: get_author
+      run: |
+        AUTHOR=$(git log -1 --pretty=format:'%an <%ae>')
+        AUTHOR_USERNAME=$(echo $AUTHOR | sed -n 's/.*<\(.*\)@.*/\1/p')
+        echo "::set-output name=author::$AUTHOR"
+        echo "::set-output name=username::$AUTHOR_USERNAME"
+
     - name: Check for changes
       id: check_changes
       run: |
@@ -57,10 +65,13 @@ jobs:
         body: |
           Este PR backporta los cambios de master a dev.
           Por favor, revise los cambios y apruebe el PR si todo está correcto.
+          
+          Último autor del commit en master: ${{ steps.get_author.outputs.author }}
         draft: false
         labels: |
           backport
           needs review
+        assignees: ${{ steps.get_author.outputs.username }}
 
     - name: Notify if no changes
       if: steps.check_changes.outputs.has_changes != 'true'
