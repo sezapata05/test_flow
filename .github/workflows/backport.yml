@@ -17,6 +17,15 @@ jobs:
       run: |
         git config user.name github-actions
         git config user.email github-actions@github.com
+        
+    - name: Debug - Check Git Status
+      run: |
+        echo "Current branch:"
+        git branch --show-current
+        echo "All branches:"
+        git branch -a
+        echo "Remote information:"
+        git remote -v
     
     - name: Get last commit author
       id: get_author
@@ -25,12 +34,20 @@ jobs:
         AUTHOR_USERNAME=$(echo $AUTHOR | sed -n 's/.*<\(.*\)@.*/\1/p')
         echo "author=$AUTHOR" >> $GITHUB_OUTPUT
         echo "username=$AUTHOR_USERNAME" >> $GITHUB_OUTPUT
+        echo "Last commit author: $AUTHOR"
     
     - name: Check for differences
       id: check_diff
       run: |
         git fetch origin dev
         git diff --quiet origin/dev...origin/master || echo "has_changes=true" >> $GITHUB_OUTPUT
+        echo "Has changes: ${{ steps.check_diff.outputs.has_changes == 'true' && 'Yes' || 'No' }}"
+    
+    - name: Debug - Pre-PR Creation
+      run: |
+        echo "Current state before PR creation:"
+        git status
+        git log --oneline -n 5
     
     - name: Create Pull Request
       id: create_pr
@@ -52,6 +69,16 @@ jobs:
           needs review
         assignees: ${{ steps.get_author.outputs.username }}
     
+    - name: Debug - Post-PR Creation
+      if: always()
+      run: |
+        echo "PR Creation Outputs:"
+        echo "Pull Request Number: ${{ steps.create_pr.outputs.pull-request-number }}"
+        echo "Pull Request URL: ${{ steps.create_pr.outputs.pull-request-url }}"
+        echo "Current state after PR creation attempt:"
+        git status
+        git log --oneline -n 5
+    
     - name: PR Creation Status
       if: steps.create_pr.outputs.pull-request-number
       run: |
@@ -60,11 +87,13 @@ jobs:
         echo "URL del PR: ${{ steps.create_pr.outputs.pull-request-url }}"
       
     - name: PR Creation Failed
-      if: steps.create_pr.outputs.pull-request-number == ''
+      if: failure() && steps.create_pr.outcome == 'failure'
       run: |
-        echo "No se pudo crear un nuevo Pull Request."
-        echo "Verificando si ya existe un PR..."
+        echo "Error al crear el Pull Request."
+        echo "Detalles del error:"
+        echo "${{ steps.create_pr.outputs.error-message }}"
         
+        echo "Verificando si ya existe un PR..."
         existingPR=$(gh pr list --base dev --head backport-to-dev --json number,url --jq '.[0]')
         
         if [ -n "$existingPR" ]; then
@@ -72,8 +101,6 @@ jobs:
           echo "$existingPR" | jq .
         else
           echo "No se encontró ningún PR existente."
-          echo "Detalles del intento de creación:"
-          echo "Resultado: ${{ steps.create_pr.outputs.result }}"
         fi
       env:
         GITHUB_TOKEN: ${{ secrets.PAT }}
@@ -95,9 +122,9 @@ jobs:
     - name: Notify status
       run: |
         if [ "${{ steps.check_diff.outputs.has_changes }}" == "true" ]; then
-          echo "Se ha creado o actualizado un PR para backport de master a dev."
+          echo "Se ha intentado crear o actualizar un PR para backport de master a dev."
         else
-          echo "Se ha verificado el estado del PR, pero no hay cambios adicionales para backport de master a dev."
+          echo "Se ha verificado el estado, pero no hay cambios adicionales para backport de master a dev."
         fi
         echo "Estado actual de las ramas:"
-        git show-branch master dev
+        git show-branch master dev || echo "No se pudo mostrar el estado de las ramas"
