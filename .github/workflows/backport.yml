@@ -16,6 +16,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
+          token: ${{ secrets.PAT }}
 
       - name: Set up Git
         run: |
@@ -44,7 +45,10 @@ jobs:
           }
 
       - name: Push changes
-        run: git push origin backport-to-dev
+        run: |
+          git push origin backport-to-dev
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT }}
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v5
