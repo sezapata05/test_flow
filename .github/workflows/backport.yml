@@ -1,26 +1,48 @@
-name: Automatic backport action
+name: Backport from Master to Dev
 
 on:
-  pull_request_target:
-    types: ["labeled", "closed"]
+  push:
+    branches:
+      - master
+  # pull_request:
+  #   types: [closed]
+  #   branches:
+  #     - master
 
 jobs:
-  backport:
-    name: Backport PR
-    if: github.event.pull_request.merged == true && !(contains(github.event.pull_request.labels.*.name, 'backport'))
+  backport-to-dev:
+    name: Backport to Dev
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
-      - name: Backport Action
-        uses: sorenlouv/backport-github-action@v9.5.1
+      - name: Checkout code
+        uses: actions/checkout@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          auto_backport_label_prefix: backport-to-
+          fetch-depth: 0
 
-      - name: Info log
-        if: ${{ success() }}
-        run: cat ~/.backport/backport.info.log
-        
-      - name: Debug log
-        if: ${{ failure() }}
-        run: cat ~/.backport/backport.debug.log        
-          
+      - name: Set up Git
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+
+      - name: Create backport branch
+        run: |
+          git fetch origin dev
+          git checkout -b backport-to-dev origin/dev
+          git cherry-pick ${{ github.event.pull_request.merge_commit_sha }}
+
+      - name: Push changes
+        run: git push origin backport-to-dev
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: backport-to-dev
+          base: dev
+          title: '[Backport] ${{ github.event.pull_request.title }}'
+          body: |
+            Backport of #${{ github.event.pull_request.number }} to dev branch.
+            
+            Original PR: ${{ github.event.pull_request.html_url }}
+          labels: backport
