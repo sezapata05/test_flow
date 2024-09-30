@@ -1,76 +1,107 @@
-name: Fast-forward Dev to Master
-
+name: Backport to Dev
 on:
-  pull_request:
-    types: [closed]
+  push:
     branches:
       - master
-
 jobs:
-  fast-forward-dev:
-    name: Fast-forward Dev to Master
-    if: github.event.pull_request.merged == true
+  backport:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.PAT }}
-
-      - name: Set up Git
-        run: |
-          git config user.name github-actions
-          git config user.email github-actions@github.com
-
-      - name: Fast-forward Dev to Master
-        run: |
-          git fetch origin master dev
-          
-          # Verificar si dev está detrás de master
-          if git merge-base --is-ancestor origin/dev origin/master; then
-            echo "Dev está detrás de master. Realizando fast-forward..."
-            git checkout dev
-            git merge --ff-only origin/master
-            git push origin dev
-          else
-            echo "Dev no está detrás de master. No se puede realizar fast-forward."
-            exit 1
-          fi
-        env:
-          GITHUB_TOKEN: ${{ secrets.PAT }}
-
-      - name: Get PR author
-        if: failure()
-        id: get_author
-        run: echo "pr_author=${{ github.event.pull_request.user.login }}" >> $GITHUB_OUTPUT
-
-      - name: Create Pull Request if needed
-        if: failure()
-        uses: peter-evans/create-pull-request@v5
-        with:
-          token: ${{ secrets.PAT }}
-          branch: update-dev-from-master
-          base: dev
-          title: 'Update Dev from Master'
-          body: |
-            No se pudo realizar un fast-forward de Dev a Master.
-            Este PR contiene los cambios necesarios para actualizar Dev.
-            
-            Por favor, revise los cambios y resuelva cualquier conflicto si es necesario.
-            
-            Este PR fue creado automáticamente debido a un merge en master realizado por @${{ steps.get_author.outputs.pr_author }}.
-          labels: update, needs review
-          assignees: ${{ steps.get_author.outputs.pr_author }}
-
-      - name: Notify status
-        if: always()
-        run: |
-          if [ ${{ job.status }} == 'success' ]; then
-            echo "Dev ha sido actualizado exitosamente con los cambios de Master."
-          else
-            echo "No se pudo actualizar Dev automáticamente. Se ha creado un PR para revisión manual y se ha asignado a @${{ steps.get_author.outputs.pr_author }}."
-          fi
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.PAT }}
+    
+    - name: Set up Git
+      run: |
+        git config user.name github-actions
+        git config user.email github-actions@github.com
+    
+    - name: Debug - Check Git Status
+      run: |
+        echo "Current branch:"
+        git branch --show-current
+        echo "All branches:"
+        git branch -a
+        echo "Remote information:"
+        git remote -v
+    
+    - name: Get last commit author
+      id: get_author
+      run: |
+        AUTHOR=$(git log -1 --pretty=format:'%an <%ae>')
+        AUTHOR_USERNAME=$(echo $AUTHOR | sed -n 's/.*<\(.*\)@.*/\1/p')
+        echo "author=$AUTHOR" >> $GITHUB_OUTPUT
+        echo "username=$AUTHOR_USERNAME" >> $GITHUB_OUTPUT
+        echo "Last commit author: $AUTHOR"
+    
+    - name: Check for differences
+      id: check_diff
+      run: |
+        git fetch origin dev
+        git diff --name-only origin/dev...origin/master > changes.txt
+        if [ -s changes.txt ]; then
+          echo "has_changes=true" >> $GITHUB_OUTPUT
+          echo "Changes detected:"
+          cat changes.txt
+        else
+          echo "has_changes=false" >> $GITHUB_OUTPUT
+          echo "No changes detected"
+        fi
+    
+    - name: Debug - Pre-PR Creation
+      run: |
+        echo "Current state before PR creation:"
+        git status
+        git log --oneline -n 5
+        echo "Diff between dev and master:"
+        git diff origin/dev...origin/master
+    
+    - name: Create Pull Request
+      uses: peter-evans/create-pull-request@v5
+      with:
+        token: ${{ secrets.PAT }}
+        branch: backport-to-dev
+        base: dev
+        title: 'Backport: Merge master into dev'
+        body: |
+          Este PR backporta los cambios de master a dev.
+          Por favor, revise los cambios y apruebe el PR si todo está correcto.
+          Último autor del commit en master: ${{ steps.get_author.outputs.author }}
+          ¿Hay cambios para mergear?: ${{ steps.check_diff.outputs.has_changes == 'true' && 'Sí' || 'No' }}
+        draft: false
+        labels: |
+          backport
+          needs review
+        assignees: ${{ steps.get_author.outputs.username }}
+    
+    - name: Debug - Post-PR Creation
+      if: always()
+      run: |
+        echo "PR Creation Outputs:"
+        echo "Pull Request Number: ${{ steps.create_pr.outputs.pull-request-number }}"
+        echo "Pull Request URL: ${{ steps.create_pr.outputs.pull-request-url }}"
+        echo "Current state after PR creation attempt:"
+        git status
+        git log --oneline -n 5
+    
+    - name: List Open PRs
+      run: |
+        echo "Lista de PRs abiertos de backport-to-dev a dev:"
+        gh pr list --base dev --head backport-to-dev --json number,title,url --jq '.[] | "PR #\(.number): \(.title) - \(.url)"'
+      env:
+        GITHUB_TOKEN: ${{ secrets.PAT }}
+    
+    - name: Notify status
+      run: |
+        if [ "${{ steps.check_diff.outputs.has_changes }}" == "true" ]; then
+          echo "Se ha intentado crear o actualizar un PR para backport de master a dev."
+        else
+          echo "Se ha verificado el estado, pero no se detectaron cambios adicionales para backport de master a dev."
+        fi
+        echo "Estado actual de las ramas:"
+        git show-branch master dev || echo "No se pudo mostrar el estado de las ramas"
 
 # name: Fast-forward Dev to Master
 
