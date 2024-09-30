@@ -12,12 +12,12 @@ jobs:
       with:
         fetch-depth: 0
         token: ${{ secrets.PAT }}
-    
+
     - name: Set up Git
       run: |
         git config user.name github-actions
         git config user.email github-actions@github.com
-    
+
     - name: Get last commit author
       id: get_author
       run: |
@@ -25,19 +25,19 @@ jobs:
         AUTHOR_USERNAME=$(echo $AUTHOR | sed -n 's/.*<\(.*\)@.*/\1/p')
         echo "author=$AUTHOR" >> $GITHUB_OUTPUT
         echo "username=$AUTHOR_USERNAME" >> $GITHUB_OUTPUT
-    
+
     - name: Create or update backport branch
       run: |
         git fetch origin dev
         git checkout -B backport-to-dev origin/dev
         git merge origin/master --no-edit
         git push origin backport-to-dev --force
-    
+
     - name: Check for differences
       id: check_diff
       run: |
         git diff --quiet origin/dev...backport-to-dev || echo "has_changes=true" >> $GITHUB_OUTPUT
-    
+
     - name: Create Pull Request
       if: steps.check_diff.outputs.has_changes == 'true'
       env:
@@ -45,10 +45,10 @@ jobs:
       run: |
         PR_URL=$(gh pr create --base dev --head backport-to-dev --title "Backport: Merge master into dev" --body "Este PR backporta los cambios de master a dev.
         Por favor, revise los cambios y apruebe el PR si todo está correcto.
-        
+
         Último autor del commit en master: ${{ steps.get_author.outputs.author }}" --label backport,"needs review")
         echo "PR creado: $PR_URL"
-    
+
     - name: Notify status
       run: |
         if [ "${{ steps.check_diff.outputs.has_changes }}" == "true" ]; then
@@ -140,12 +140,12 @@ jobs:
 #       with:
 #         fetch-depth: 0
 #         token: ${{ secrets.PAT }}
-    
+
 #     - name: Set up Git
 #       run: |
 #         git config user.name github-actions
 #         git config user.email github-actions@github.com
-    
+
 #     - name: Get last commit author
 #       id: get_author
 #       run: |
@@ -153,7 +153,7 @@ jobs:
 #         AUTHOR_USERNAME=$(echo $AUTHOR | sed -n 's/.*<\(.*\)@.*/\1/p')
 #         echo "author=$AUTHOR" >> $GITHUB_OUTPUT
 #         echo "username=$AUTHOR_USERNAME" >> $GITHUB_OUTPUT
-    
+
 #     - name: Update dev branch
 #       run: |
 #         git fetch origin dev
@@ -166,12 +166,12 @@ jobs:
 #           git checkout -b dev origin/master
 #         fi
 #         git push origin dev
-    
+
 #     - name: Check for differences
 #       id: check_diff
 #       run: |
 #         git diff --quiet origin/dev...origin/master || echo "has_changes=true" >> $GITHUB_OUTPUT
-    
+
 #     - name: Create Pull Request if needed
 #       if: steps.check_diff.outputs.has_changes == 'true'
 #       uses: peter-evans/create-pull-request@v5
@@ -190,7 +190,7 @@ jobs:
 #           backport
 #           needs review
 #         assignees: ${{ steps.get_author.outputs.username }}
-    
+
 #     - name: Notify status
 #       run: |
 #         if [ "${{ steps.check_diff.outputs.has_changes }}" == "true" ]; then
@@ -200,7 +200,7 @@ jobs:
 #         fi
 #         echo "Estado actual de las ramas:"
 #         git show-branch master dev
-    
+
 #     - name: Check for open PRs
 #       run: |
 #         pr_count=$(gh pr list --base dev --head backport-to-dev --json number --jq length)
@@ -240,7 +240,7 @@ jobs:
 #       - name: Fast-forward Dev to Master
 #         run: |
 #           git fetch origin master dev
-          
+
 #           # Verificar si dev está detrás de master
 #           if git merge-base --is-ancestor origin/dev origin/master; then
 #             echo "Dev está detrás de master. Realizando fast-forward..."
@@ -265,7 +265,7 @@ jobs:
 #           body: |
 #             No se pudo realizar un fast-forward de Dev a Master.
 #             Este PR contiene los cambios necesarios para actualizar Dev.
-            
+
 #             Por favor, revise los cambios y resuelva cualquier conflicto si es necesario.
 #           labels: update, needs review
 
