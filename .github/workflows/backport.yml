@@ -98,7 +98,18 @@ jobs:
         PR_NUMBER=$(gh pr list --base dev --head backport-to-dev --json number --jq '.[0].number')
         if [ -n "$PR_NUMBER" ]; then
           echo "Waiting for PR #$PR_NUMBER to be merged..."
-          gh pr check $PR_NUMBER --interval 30s --watch
+          while true; do
+            PR_STATE=$(gh pr view $PR_NUMBER --json state --jq '.state')
+            if [ "$PR_STATE" = "MERGED" ]; then
+              echo "PR #$PR_NUMBER has been merged."
+              break
+            elif [ "$PR_STATE" = "CLOSED" ]; then
+              echo "PR #$PR_NUMBER was closed without merging."
+              exit 1
+            fi
+            echo "PR #$PR_NUMBER is still open. Waiting 30 seconds before checking again..."
+            sleep 30
+          done
         else
           echo "No open PR found."
         fi
