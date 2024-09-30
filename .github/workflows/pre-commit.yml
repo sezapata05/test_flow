@@ -1,0 +1,17 @@
+name: Pre-commit
+
+on: [push, pull_request]
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'  # Especifica la versión de Python que necesitas
+    - uses: pre-commit/action@v3.0.0
+    - name: Run pre-commit
+      run: pre-commit run --all-files
+      env:
+        SKIP: no-commit-to-branch  # Opcional: salta los hooks que no tienen sentido en CI
