@@ -1,4 +1,3 @@
 # test_flow
 
-Hi
-f
+Hi, this is the last test
