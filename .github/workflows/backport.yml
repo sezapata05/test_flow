@@ -38,35 +38,16 @@ jobs:
       run: |
         git diff --quiet origin/dev...backport-to-dev || echo "has_changes=true" >> $GITHUB_OUTPUT
     
-    - name: Create Pull Request if needed
+    - name: Create Pull Request
       if: steps.check_diff.outputs.has_changes == 'true'
-      uses: peter-evans/create-pull-request@v5
-      with:
-        token: ${{ secrets.PAT }}
-        branch: backport-to-dev
-        base: dev
-        title: 'Backport: Merge master into dev'
-        body: |
-          Este PR backporta los cambios de master a dev.
-          Por favor, revise los cambios y apruebe el PR si todo está correcto.
-
-          Último autor del commit en master: ${{ steps.get_author.outputs.author }}
-        draft: false
-        labels: |
-          backport
-          needs review
-        assignees: ${{ steps.get_author.outputs.username }}
-    
-    - name: Check for open PRs
-      run: |
-        pr_count=$(gh pr list --base dev --head backport-to-dev --json number --jq length)
-        if [ "$pr_count" -eq "0" ]; then
-          echo "No hay PRs abiertos de backport-to-dev a dev. Creando uno nuevo..."
-        else
-          echo "Ya existe un PR abierto de backport-to-dev a dev. Actualizando el existente..."
-        fi
       env:
-        GITHUB_TOKEN: ${{ secrets.PAT }}
+        GH_TOKEN: ${{ secrets.PAT }}
+      run: |
+        PR_URL=$(gh pr create --base dev --head backport-to-dev --title "Backport: Merge master into dev" --body "Este PR backporta los cambios de master a dev.
+        Por favor, revise los cambios y apruebe el PR si todo está correcto.
+        
+        Último autor del commit en master: ${{ steps.get_author.outputs.author }}" --label backport,needs-review --assignee ${{ steps.get_author.outputs.username }})
+        echo "PR creado: $PR_URL"
     
     - name: Notify status
       run: |
