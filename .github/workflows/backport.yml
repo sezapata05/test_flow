@@ -26,7 +26,22 @@ jobs:
         run: |
           git fetch origin dev
           git checkout -b backport-to-dev origin/dev
-          git cherry-pick ${{ github.event.pull_request.merge_commit_sha }}
+          
+          # Obtener el commit de merge
+          MERGE_COMMIT_SHA=${{ github.event.pull_request.merge_commit_sha }}
+          
+          # Obtener los padres del commit de merge
+          PARENT1=$(git rev-parse $MERGE_COMMIT_SHA^1)
+          PARENT2=$(git rev-parse $MERGE_COMMIT_SHA^2)
+          
+          # Crear un nuevo commit con los cambios del merge
+          git cherry-pick -m 1 $MERGE_COMMIT_SHA || {
+            echo "Conflicto en cherry-pick. Resolviendo automáticamente..."
+            git cherry-pick --abort
+            git diff $PARENT1..$PARENT2 | git apply
+            git add .
+            git commit -m "Backport changes from $MERGE_COMMIT_SHA"
+          }
 
       - name: Push changes
         run: git push origin backport-to-dev
