@@ -46,7 +46,7 @@ jobs:
         PR_URL=$(gh pr create --base dev --head backport-to-dev --title "Backport: Merge master into dev" --body "Este PR backporta los cambios de master a dev.
         Por favor, revise los cambios y apruebe el PR si todo está correcto.
         
-        Último autor del commit en master: ${{ steps.get_author.outputs.author }}" --label backport,needs-review --assignee ${{ steps.get_author.outputs.username }})
+        Último autor del commit en master: ${{ steps.get_author.outputs.author }}" --label backport,needs-review)
         echo "PR creado: $PR_URL"
     
     - name: Notify status
