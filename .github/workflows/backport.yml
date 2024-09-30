@@ -23,7 +23,11 @@ jobs:
     - name: Check for changes
       id: check_changes
       run: |
+        git fetch --all
+        echo "Commits ahead:"
+        git log --oneline dev..master
         git diff --quiet origin/dev...origin/master || echo "::set-output name=has_changes::true"
+        echo "Has changes: ${{ steps.check_changes.outputs.has_changes }}"
 
     - name: Create backport branch
       if: steps.check_changes.outputs.has_changes == 'true'
@@ -52,6 +56,8 @@ jobs:
       if: steps.check_changes.outputs.has_changes != 'true'
       run: |
         echo "No hay cambios para backport de master a dev."
+        echo "Estado actual de las ramas:"
+        git show-branch master dev
 
     - name: Check for open PRs
       run: |
