@@ -12,12 +12,10 @@ jobs:
       with:
         fetch-depth: 0
         token: ${{ secrets.PAT }}
-
     - name: Set up Git
       run: |
         git config user.name github-actions
         git config user.email github-actions@github.com
-
     - name: Debug - Check Git Status
       run: |
         echo "Current branch:"
@@ -26,7 +24,6 @@ jobs:
         git branch -a
         echo "Remote information:"
         git remote -v
-
     - name: Get last commit author
       id: get_author
       run: |
@@ -35,7 +32,6 @@ jobs:
         echo "author=$AUTHOR" >> $GITHUB_OUTPUT
         echo "username=$AUTHOR_USERNAME" >> $GITHUB_OUTPUT
         echo "Last commit author: $AUTHOR"
-
     - name: Check for differences
       id: check_diff
       run: |
@@ -49,7 +45,6 @@ jobs:
           echo "has_changes=false" >> $GITHUB_OUTPUT
           echo "No changes detected"
         fi
-
     - name: Debug - Pre-PR Creation
       run: |
         echo "Current state before PR creation:"
@@ -57,7 +52,6 @@ jobs:
         git log --oneline -n 5
         echo "Diff between dev and master:"
         git diff origin/dev...origin/master
-
     - name: Create Pull Request
       uses: peter-evans/create-pull-request@v5
       with:
@@ -69,14 +63,12 @@ jobs:
           Este PR backporta los cambios de master a dev.
           Por favor, revise los cambios y apruebe el PR si todo está correcto.
           Último autor del commit en master: ${{ steps.get_author.outputs.author }}
-
           ¿Hay cambios para mergear?: ${{ steps.check_diff.outputs.has_changes == 'true' && 'Sí' || 'No' }}
         draft: false
         labels: |
           backport
           needs review
         assignees: ${{ steps.get_author.outputs.username }}
-
     - name: Debug - Post-PR Creation
       if: always()
       run: |
@@ -86,14 +78,12 @@ jobs:
         echo "Current state after PR creation attempt:"
         git status
         git log --oneline -n 5
-
     - name: List Open PRs
       run: |
         echo "Lista de PRs abiertos de backport-to-dev a dev:"
         gh pr list --base dev --head backport-to-dev --json number,title,url --jq '.[] | "PR #\(.number): \(.title) - \(.url)"'
       env:
         GITHUB_TOKEN: ${{ secrets.PAT }}
-
     - name: Notify status
       run: |
         if [ "${{ steps.check_diff.outputs.has_changes }}" == "true" ]; then
@@ -103,3 +93,34 @@ jobs:
         fi
         echo "Estado actual de las ramas:"
         git show-branch master dev || echo "No se pudo mostrar el estado de las ramas"
+    - name: Wait for PR to be merged
+      run: |
+        PR_NUMBER=$(gh pr list --base dev --head backport-to-dev --json number --jq '.[0].number')
+        if [ -n "$PR_NUMBER" ]; then
+          echo "Waiting for PR #$PR_NUMBER to be merged..."
+          gh pr check $PR_NUMBER --interval 30s --watch
+        else
+          echo "No open PR found."
+        fi
+      env:
+        GITHUB_TOKEN: ${{ secrets.PAT }}
+    - name: Fast-forward master
+      run: |
+        git fetch origin dev
+        git checkout master
+        git merge --ff-only origin/dev
+        git push origin master
+      env:
+        GITHUB_TOKEN: ${{ secrets.PAT }}
+    - name: Verify branches are in sync
+      run: |
+        git fetch origin
+        MASTER_SHA=$(git rev-parse origin/master)
+        DEV_SHA=$(git rev-parse origin/dev)
+        if [ "$MASTER_SHA" = "$DEV_SHA" ]; then
+          echo "master and dev are now in sync"
+        else
+          echo "Warning: master and dev are not in sync"
+          echo "master: $MASTER_SHA"
+          echo "dev: $DEV_SHA"
+        fi
