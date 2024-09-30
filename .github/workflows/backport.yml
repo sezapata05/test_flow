@@ -1,0 +1,38 @@
+name: Backport to Dev
+
+on:
+  push:
+    branches:
+      - master  # O el nombre de su rama principal
+
+jobs:
+  backport:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0  # Necesario para acceder al historial completo
+
+    - name: Set up Git
+      run: |
+        git config user.name github-actions
+        git config user.email github-actions@github.com
+
+    - name: Create backport branch
+      run: |
+        git checkout -b backport-to-dev origin/dev
+        git merge --no-ff origin/master -m "Backport: Merge master into dev"
+
+    - name: Push changes
+      run: |
+        git push origin backport-to-dev
+
+    - name: Create Pull Request
+      uses: peter-evans/create-pull-request@v3
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        branch: backport-to-dev
+        base: dev
+        title: 'Backport: Merge master into dev'
+        body: 'This PR backports changes from master to dev.'
