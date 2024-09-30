@@ -57,7 +57,7 @@ jobs:
           Por favor, revise los cambios y apruebe el PR si todo está correcto.
           
           Último autor del commit en master: ${{ steps.get_author.outputs.author }}
-        draft: false
+        draft: true
         labels: |
           backport
           needs review
