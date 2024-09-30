@@ -1,13 +1,10 @@
 name: Backport from Master to Dev
 
 on:
-  push:
+  pull_request:
+    types: [closed]
     branches:
       - master
-  # pull_request:
-  #   types: [closed]
-  #   branches:
-  #     - master
 
 jobs:
   backport-to-dev:
