@@ -77,12 +77,12 @@ jobs:
 #       with:
 #         fetch-depth: 0
 #         token: ${{ secrets.PAT }}
-    
+
 #     - name: Set up Git
 #       run: |
 #         git config user.name github-actions
 #         git config user.email github-actions@github.com
-    
+
 #     - name: Get last commit author
 #       id: get_author
 #       run: |
@@ -90,19 +90,19 @@ jobs:
 #         AUTHOR_USERNAME=$(echo $AUTHOR | sed -n 's/.*<\(.*\)@.*/\1/p')
 #         echo "author=$AUTHOR" >> $GITHUB_OUTPUT
 #         echo "username=$AUTHOR_USERNAME" >> $GITHUB_OUTPUT
-    
+
 #     - name: Create or update backport branch
 #       run: |
 #         git fetch origin dev
 #         git checkout -B backport-to-dev origin/dev
 #         git merge origin/master --no-edit
 #         git push origin backport-to-dev --force
-    
+
 #     - name: Check for differences
 #       id: check_diff
 #       run: |
 #         git diff --quiet origin/dev...backport-to-dev || echo "has_changes=true" >> $GITHUB_OUTPUT
-    
+
 #     - name: Create Pull Request
 #       if: steps.check_diff.outputs.has_changes == 'true'
 #       env:
@@ -110,10 +110,10 @@ jobs:
 #       run: |
 #         PR_URL=$(gh pr create --base dev --head backport-to-dev --title "Backport: Merge master into dev" --body "Este PR backporta los cambios de master a dev.
 #         Por favor, revise los cambios y apruebe el PR si todo está correcto.
-        
+
 #         Último autor del commit en master: ${{ steps.get_author.outputs.author }}" --label backport,"needs review")
 #         echo "PR creado: $PR_URL"
-    
+
 #     - name: Notify status
 #       run: |
 #         if [ "${{ steps.check_diff.outputs.has_changes }}" == "true" ]; then
