@@ -42,17 +42,29 @@ jobs:
       if: steps.check_diff.outputs.has_changes == 'true'
       env:
         GH_TOKEN: ${{ secrets.PAT }}
+      id: create_pr
       run: |
         PR_URL=$(gh pr create --base dev --head backport-to-dev --title "Backport: Merge master into dev" --body "Este PR backporta los cambios de master a dev.
         Por favor, revise los cambios y apruebe el PR si todo está correcto.
 
         Último autor del commit en master: ${{ steps.get_author.outputs.author }}" --label backport,"needs review")
+        echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
         echo "PR creado: $PR_URL"
+
+    - name: Assign PR to last commit author
+      if: steps.check_diff.outputs.has_changes == 'true'
+      env:
+        GH_TOKEN: ${{ secrets.PAT }}
+      run: |
+        PR_NUMBER=$(echo "${{ steps.create_pr.outputs.pr_url }}" | awk -F'/' '{print $NF}')
+        gh pr edit $PR_NUMBER --add-assignee ${{ steps.get_author.outputs.username }}
+        echo "PR asignado a ${{ steps.get_author.outputs.username }}"
 
     - name: Notify status
       run: |
         if [ "${{ steps.check_diff.outputs.has_changes }}" == "true" ]; then
           echo "Se ha creado o actualizado un PR para backport de master a dev."
+          echo "El PR ha sido asignado a ${{ steps.get_author.outputs.username }}"
         else
           echo "No hay cambios adicionales para backport de master a dev."
         fi
