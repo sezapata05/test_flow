@@ -1,12 +1,8 @@
-name: Backport to Dev (Protected Branch)
+name: Branch Cleanup After Merge
+
 on:
-  push:
-    branches:
-      - master
   pull_request:
     types: [closed]
-    branches:
-      - master
 
 jobs:
   delete_branch:
