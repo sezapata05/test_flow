@@ -15,12 +15,12 @@ jobs:
       - name: Delete branch if conditions are met
         if: github.event.pull_request.merged == true
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT }}
           BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
         run: |
           if [[ "$BRANCH_NAME" != "master" && "$BRANCH_NAME" != "dev" && "$BRANCH_NAME" != release* ]]; then
             echo "Deleting branch $BRANCH_NAME"
-            gh pr delete $BRANCH_NAME --delete-branch
+            gh api repos/${{ github.repository }}/git/refs/heads/$BRANCH_NAME -X DELETE
           else
             echo "Branch $BRANCH_NAME is protected and will not be deleted"
           fi
