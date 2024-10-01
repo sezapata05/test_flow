@@ -1,94 +1,94 @@
-name: Selective Backport to Dev
-on:
-  push:
-    branches:
-      - master
-jobs:
-  selective-backport:
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
-        token: ${{ secrets.PAT }}
+# name: Selective Backport to Dev
+# on:
+#   push:
+#     branches:
+#       - master
+# jobs:
+#   selective-backport:
+#     runs-on: ubuntu-latest
+#     steps:
+#     - name: Checkout code
+#       uses: actions/checkout@v3
+#       with:
+#         fetch-depth: 0
+#         token: ${{ secrets.PAT }}
 
-    - name: Set up Git
-      run: |
-        git config user.name github-actions
-        git config user.email github-actions@github.com
+#     - name: Set up Git
+#       run: |
+#         git config user.name github-actions
+#         git config user.email github-actions@github.com
 
-    - name: Debug - List branches
-      run: |
-        echo "Local branches:"
-        git branch -a
-        echo "Remote branches:"
-        git ls-remote --heads origin
+#     - name: Debug - List branches
+#       run: |
+#         echo "Local branches:"
+#         git branch -a
+#         echo "Remote branches:"
+#         git ls-remote --heads origin
 
-    - name: Fetch dev branch
-      run: |
-        git fetch origin dev || echo "dev branch not found"
-        git branch -a
+#     - name: Fetch dev branch
+#       run: |
+#         git fetch origin dev || echo "dev branch not found"
+#         git branch -a
 
-    - name: Get commits to cherry-pick
-      id: get_commits
-      run: |
-        if git rev-parse --verify origin/dev > /dev/null 2>&1; then
-          commits=$(git log origin/dev..origin/master --pretty=format:"%H")
-          echo "commits=$commits" >> $GITHUB_OUTPUT
-          echo "Commits to cherry-pick: $commits"
-        else
-          echo "dev branch not found. Using all commits from master."
-          commits=$(git log --pretty=format:"%H" origin/master)
-          echo "commits=$commits" >> $GITHUB_OUTPUT
-          echo "Commits to consider: $commits"
-        fi
+#     - name: Get commits to cherry-pick
+#       id: get_commits
+#       run: |
+#         if git rev-parse --verify origin/dev > /dev/null 2>&1; then
+#           commits=$(git log origin/dev..origin/master --pretty=format:"%H")
+#           echo "commits=$commits" >> $GITHUB_OUTPUT
+#           echo "Commits to cherry-pick: $commits"
+#         else
+#           echo "dev branch not found. Using all commits from master."
+#           commits=$(git log --pretty=format:"%H" origin/master)
+#           echo "commits=$commits" >> $GITHUB_OUTPUT
+#           echo "Commits to consider: $commits"
+#         fi
 
-    - name: Prepare backport branch
-      run: |
-        if git rev-parse --verify origin/dev > /dev/null 2>&1; then
-          git checkout -b backport-to-dev origin/dev
-        else
-          git checkout -b backport-to-dev
-        fi
+#     - name: Prepare backport branch
+#       run: |
+#         if git rev-parse --verify origin/dev > /dev/null 2>&1; then
+#           git checkout -b backport-to-dev origin/dev
+#         else
+#           git checkout -b backport-to-dev
+#         fi
 
-    - name: Cherry-pick commits
-      id: cherry_pick
-      run: |
-        success=true
-        for commit in ${{ steps.get_commits.outputs.commits }}; do
-          if ! git cherry-pick -x $commit; then
-            echo "Cherry-pick failed for commit $commit"
-            git cherry-pick --abort
-            success=false
-            break
-          fi
-        done
-        echo "cherry_pick_success=$success" >> $GITHUB_OUTPUT
+#     - name: Cherry-pick commits
+#       id: cherry_pick
+#       run: |
+#         success=true
+#         for commit in ${{ steps.get_commits.outputs.commits }}; do
+#           if ! git cherry-pick -x $commit; then
+#             echo "Cherry-pick failed for commit $commit"
+#             git cherry-pick --abort
+#             success=false
+#             break
+#           fi
+#         done
+#         echo "cherry_pick_success=$success" >> $GITHUB_OUTPUT
 
-    - name: Create Pull Request
-      uses: peter-evans/create-pull-request@v5
-      with:
-        token: ${{ secrets.PAT }}
-        branch: backport-to-dev
-        base: dev
-        title: 'Backport: Cherry-pick from Master to Dev'
-        body: |
-          Este PR contiene commits cherry-picked de master a dev.
-          Por favor, revise los cambios y apruebe el PR si todo está correcto.
+#     - name: Create Pull Request
+#       uses: peter-evans/create-pull-request@v5
+#       with:
+#         token: ${{ secrets.PAT }}
+#         branch: backport-to-dev
+#         base: dev
+#         title: 'Backport: Cherry-pick from Master to Dev'
+#         body: |
+#           Este PR contiene commits cherry-picked de master a dev.
+#           Por favor, revise los cambios y apruebe el PR si todo está correcto.
 
-          Commits incluidos:
-          ${{ steps.get_commits.outputs.commits }}
-        draft: false
-        labels: |
-          backport
-          needs review
+#           Commits incluidos:
+#           ${{ steps.get_commits.outputs.commits }}
+#         draft: false
+#         labels: |
+#           backport
+#           needs review
 
-    - name: Provide backport status
-      run: |
-        if [ "${{ steps.cherry_pick.outputs.cherry_pick_success }}" == "true" ]; then
-          echo "Se ha creado un PR con los commits cherry-picked de master a dev."
-        else
-          echo "No se pudieron cherry-pick todos los commits. Se ha creado un PR para backport manual."
-        fi
-        echo "Por favor, revise el PR creado y realice los ajustes necesarios."
+#     - name: Provide backport status
+#       run: |
+#         if [ "${{ steps.cherry_pick.outputs.cherry_pick_success }}" == "true" ]; then
+#           echo "Se ha creado un PR con los commits cherry-picked de master a dev."
+#         else
+#           echo "No se pudieron cherry-pick todos los commits. Se ha creado un PR para backport manual."
+#         fi
+#         echo "Por favor, revise el PR creado y realice los ajustes necesarios."
